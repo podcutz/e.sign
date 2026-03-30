@@ -490,11 +490,6 @@
                 statusMsg.style.color = 'var(--success-green)';
 
             } catch (err) {
-
-                statusMsg.textContent = 'Document Loaded as Secure Image!';
-                statusMsg.style.color = 'var(--success-green)';
-
-            } catch (err) {
                 console.error("CRITICAL ENGINE ERROR:", err);
                 // Forcefully converts ANY error (even weird pdf.js ones) into readable text so we are never blind again!
                 const errorText = err.message ? err.message : String(err);
