@@ -288,12 +288,11 @@
             display: none !important;
         }
 
-        /* Disables the 1024px scaling hack so the PDF viewer renders perfectly on mobile */
-        body.mobile-preview-mode .gdocs-wrapper {
-            width: 100% !important;
-            height: 100% !important;
-            transform: none !important;
-        }
+        /* We purposely REMOVE the width: 100% override here!
+           By allowing the PDF viewer to use the 1024px scaling hack from above, 
+           we trick the Google Drive interactive engine into keeping its perfect desktop layout 
+           when it brightens up, preventing it from disturbing the UI.
+        */
     </style>
 </head>
 <body>
