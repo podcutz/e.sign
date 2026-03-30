@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Podcutz E-Sign</title>
+    <link rel="icon" type="image/png" href="https://res.cloudinary.com/dobnqmfsg/image/upload/v1772612374/Untitled_design__1_-removebg-preview_ux1end.png">
+    
+    <!-- Google Auth removed: Security and API calls now handled securely by n8n backend -->
+    
+    <style>
+        /* Modern Dark Theme Workspace */
+        :root {
+            --bg-workspace: #1f1f1f;
+            --bg-toolbar: #000000; /* Full black header */
+            --accent-blue: #8ab4f8;
+            --accent-blue-hover: #aecbfa;
+            --text-primary: #e8eaed;
+            --text-muted: #9aa0a6;
+            --border-color: #333;
+            --error-red: #f28b82;
+            --success-green: #81c995;
+            --btn-white: #ffffff;
+            --btn-white-hover: #e0e0e0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-workspace);
+            font-family: 'Google Sans', Roboto, Helvetica, sans-serif;
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            /* overflow: hidden; Removed to allow native pinch-to-zoom and panning */
+            touch-action: pan-x pan-y pinch-zoom; /* Force browser to allow zooming globally */
+        }
+
+        /* Custom App Toolbar */
+        .app-toolbar {
+            background-color: var(--bg-toolbar);
+            padding: 20px 15px; /* Thickened header, pushed slightly left */
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+            z-index: 100;
+            flex-wrap: wrap;
+            position: relative;
+        }
+
+        .logo {
+            font-size: 18px;
+            font-weight: 500;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 5px; /* Reduced gap to move text left towards the image */
+            margin-right: 10px;
+        }
+
+        .action-btn {
+            background-color: var(--accent-blue);
+            color: #202124;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            border: none;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-btn:hover { background-color: var(--accent-blue-hover); }
+        .action-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-success { background-color: var(--success-green); }
+        .btn-success:hover { background-color: #92e0a7; }
+        .btn-white { background-color: var(--btn-white); color: #000000; font-weight: 600; }
+        .btn-white:hover { background-color: var(--btn-white-hover); color: #000000; }
+
+        /* Link Input Styling */
+        .link-input-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        #doc-link-input {
+            background-color: #202124;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 12px;
+            border-radius: 4px;
+            width: 300px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        #doc-link-input:focus { border-color: var(--accent-blue); }
+
+        #status-msg {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-left: auto;
+        }
+
+        /* Editor Workspace */
+        #workspace {
+            flex: 1;
+            width: 100%;
+            background-color: var(--bg-workspace);
+            position: relative; 
+            /* overflow: hidden; Removed to allow seamless panning when zoomed in */
+        }
+
+        /* The scaling wrapper holds everything safely */
+        .gdocs-wrapper {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: none; /* Hidden until loaded */
+            transform-origin: top left;
+        }
+
+        #gdocs-frame {
+            width: 100%;
+            height: 100%; 
+            border: none;
+            display: block;
+            background-color: #f8f9fa; /* Matches standard Google Docs outer background */
+            touch-action: pan-x pan-y pinch-zoom !important; /* Intercepts and forces native pinch gestures before Google Docs can block them */
+        }
+
+        /* Pro Mobile Fix: Scale wrapper, adjust toolbar and modal for mobile */
+        @media (max-width: 768px) {
+            /* 1. Force a true "desktop" rendering container (1024px) to completely bypass Gmail/WebView aggressive mobile breakpoints */
+            .gdocs-wrapper {
+                width: 1024px !important; 
+                height: calc(100% * (1024 / 100vw)) !important; 
+                transform: scale(calc(100vw / 1024)); 
+            }
+
+            /* 2. Thicken and enlarge top header toolbar and buttons for touch */
+            .app-toolbar {
+                padding: 40px 20px !important; /* Made significantly thicker */
+            }
+            .logo {
+                font-size: 32px !important; /* Larger text for Podcutz */
+            }
+            .logo img {
+                width: 60px !important; /* Larger logo image */
+                height: 60px !important;
+            }
+            .action-btn {
+                padding: 20px 30px !important; /* Larger button padding */
+                font-size: 22px !important; /* Larger button text */
+            }
+
+            /* 3. Make signature modal huge on mobile for easy signing */
+            .modal-content {
+                width: 900px !important; 
+                max-width: 95% !important;
+                margin-top: -10vh !important;
+            }
+            #signature-pad {
+                height: 400px !important;
+            }
+        }
+
+        /* Solid masks to cover the Google Docs rulers cleanly */
+        .ruler-mask-top {
+            position: absolute;
+            top: 0; 
+            left: 0; 
+            right: 22px; /* Leaves room for scrollbar */
+            height: 20px; 
+            background-color: #f8f9fa; 
+            z-index: 10;
+        }
+
+        .ruler-mask-left {
+            position: absolute;
+            top: 0; 
+            left: 0; 
+            bottom: 0;
+            width: 18px; 
+            background-color: #f8f9fa; 
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* --- SIGNATURE MODAL --- */
+        .modal-overlay {
+            position: fixed; /* Changed to fixed so it perfectly centers relative to the entire screen height */
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+
+        
+        .modal-content {
+            background: #000000; /* Full black modal */
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 95%; /* Almost full width of the screen */
+            max-width: 1400px; /* Massive max-width for large desktop monitors */
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 { margin: 0; color: #ffffff; } /* Full white text */
+        
+        /* The specific drawing area */
+        #signature-pad {
+            background: #fff;
+            border-radius: 4px;
+            cursor: crosshair;
+            width: 100%;
+            height: 70vh; /* Takes up 70% of the screen height dynamically */
+            min-height: 450px; /* Fallback for smaller laptop screens */
+            touch-action: none; /* Prevents mobile scrolling while drawing */
+            /* Crisp rendering */
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
+        }
+
+        /* Color Picker Styling */
+        #sig-color {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            border: none;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            padding: 0;
+            background: transparent;
+        }
+        #sig-color::-webkit-color-swatch-wrapper { padding: 0; }
+        #sig-color::-webkit-color-swatch { border: 2px solid var(--border-color); border-radius: 4px; }
+        #sig-color::-moz-color-swatch { border: 2px solid var(--border-color); border-radius: 4px; }
+
+        .modal-actions {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .btn-cancel { background: transparent; color: #ffffff; font-weight: 600; border: 1px solid var(--border-color); }
+        .btn-cancel:hover { background: rgba(255,255,255,0.05); }
+
+        .setup-screen {
+            max-width: 600px;
+            background: #202124;
+            padding: 30px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            line-height: 1.6;
+        }
+        
+        .setup-screen code {
+            background: #111;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: var(--accent-blue);
+        }
+
+        /* Hides the ruler masks when in mobile screenshot/preview mode */
+        body.mobile-preview-mode .ruler-mask-top,
+        body.mobile-preview-mode .ruler-mask-left {
+            display: none !important;
+        }
+
+        /* Disables the 1024px scaling hack so the PDF viewer renders perfectly on mobile */
+        body.mobile-preview-mode .gdocs-wrapper {
+            width: 100% !important;
+            height: 100% !important;
+            transform: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-toolbar">
+        <div class="logo">
+            <img src="https://res.cloudinary.com/dobnqmfsg/image/upload/v1772612374/Untitled_design__1_-removebg-preview_ux1end.png" alt="Podcutz Logo" width="36" height="36" style="object-fit: contain; transform: translateY(-3px);">
+            Podcutz
+        </div>
+        
+        <div id="status-msg" style="display: none;">Initializing...</div>
+
+        <button id="open-sign-btn" class="action-btn btn-white" style="display: none; margin-left: auto;">Sign Document</button>
+    </div>
+
+    <div id="workspace">
+        <div id="setup-instructions" class="setup-screen">
+            <h2 style="color: var(--accent-blue); margin-top: 0;">Missing Document ID</h2>
+            <p style="margin-bottom: 20px;">Please provide a document ID in the URL parameter. For example:</p>
+            <code>https://podcutz.github.io/e.sign/?docId=YOUR_DOC_ID</code>
+            <p style="margin-top: 20px; font-size: 13px; color: var(--text-muted);">
+                <b>Note:</b> Your n8n backend will securely handle all Google API interactions using this ID!
+            </p>
+        </div>
+
+        <!-- The embedded Google Doc -->
+        <div id="gdocs-wrapper" class="gdocs-wrapper">
+            <div id="ruler-mask-top" class="ruler-mask-top"></div>
+            <div id="ruler-mask-left" class="ruler-mask-left"></div>
+            <iframe id="gdocs-frame" allowfullscreen></iframe>
+        </div>
+        
+        <!-- Signature Pad Modal -->
+        <div id="signature-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h3>Draw your Signature</h3>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <input type="color" id="sig-color" value="#000000" title="Choose Signature Color">
+                    </div>
+                </div>
+                
+                <canvas id="signature-pad" width="2000" height="1000"></canvas>
+                
+                <div class="modal-actions">
+                    <button id="clear-pad-btn" class="action-btn btn-cancel">Clear</button>
+                    <div>
+                        <button id="close-modal-btn" class="action-btn btn-cancel" style="display: inline-block; margin-right: 8px;">Cancel</button>
+                        <button id="save-sig-btn" class="action-btn btn-white" style="display: inline-block;">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // N8N WEBHOOK CONFIGURATION
+        // ==========================================
+        const LOAD_WEBHOOK = 'https://n8n.norkx.space/webhook/esign';
+        const SAVE_WEBHOOK = 'https://n8n.norkx.space/webhook/esign-save'; // We use a second webhook for saving
+        
+        let currentDocId = null;
+        
+        // Variables to hold extracted URL data
+        let authName = "";
+        let authNumb = "";
+        let authToken = "";
+        let authItemId = "";
+
+        const openSignBtn = document.getElementById('open-sign-btn');
+        const signatureModal = document.getElementById('signature-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const saveSigBtn = document.getElementById('save-sig-btn');
+        
+        const clearPadBtn = document.getElementById('clear-pad-btn');
+        const sigColorInput = document.getElementById('sig-color');
+        
+        const statusMsg = document.getElementById('status-msg');
+        const iframe = document.getElementById('gdocs-frame');
+        const setupScreen = document.getElementById('setup-instructions');
+
+        
+        window.onload = async function () {
+            // Extract docId from URL parameters (e.g., ?docId=XXXX)
+            const urlParams = new URLSearchParams(window.location.search);
+            currentDocId = urlParams.get('docId');
+
+            // Extract the new token string and item ID from the URL
+            const tokenData = urlParams.get('tokenData') || "";
+            authItemId = urlParams.get('itemid') || "";
+            
+            // Auto-parse the string (e.g., "eyJ...(Test30)") into token, name, and numb
+            const tokenMatch = tokenData.match(/(.+)\(([A-Za-z]+)(\d+)\)/);
+            if (tokenMatch) {
+                authToken = tokenMatch[1];
+                authName = tokenMatch[2];
+                authNumb = tokenMatch[3];
+            }
+
+            if (!currentDocId) {
+                setupScreen.style.display = 'block';
+                statusMsg.textContent = 'Waiting for Document ID...';
+                return;
+            }
+
+            setupScreen.style.display = 'none';
+            statusMsg.textContent = 'Loading Document via n8n...';
+
+            try {
+                // Call n8n Load Webhook securely
+                const response = await fetch(LOAD_WEBHOOK, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: "load", docId: currentDocId })
+                });
+                
+                if (!response.ok) throw new Error("Failed to load from n8n");
+                
+                const data = await response.json();
+                
+                // Pro Hack: Detect mobile and serve the read-only "Screenshot/Preview" mode
+                const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                const cacheBuster = new Date().getTime(); // Forces Google to load fresh data
+
+                let finalUrl = data.embedUrl || `https://docs.google.com/document/d/${currentDocId}/edit?rm=minimal`;
+
+                
+                if (isMobile) {
+                    // PRO HACK: Force the Google Drive Viewer instead of Docs unconditionally.
+                    // Adding embedded=true strips Google's grey toolbars and prevents layout squishing!
+                    finalUrl = `https://drive.google.com/file/d/${currentDocId}/preview?embedded=true&t=${cacheBuster}`;
+                    document.body.classList.add('mobile-preview-mode'); // Hides the ruler masks and disables scaling
+                }
+
+                iframe.src = finalUrl;
+                // Reveal the wrapper containing the perfectly scaled iframe and masks
+                document.getElementById('gdocs-wrapper').style.display = 'block';
+                openSignBtn.style.display = 'inline-flex';
+
+                statusMsg.textContent = 'Document loaded! Ensure [SIGN] is typed before signing.';
+                statusMsg.style.color = 'var(--success-green)';
+
+            } catch (err) {
+                console.error(err);
+                statusMsg.textContent = 'Error securely loading document from n8n.';
+                statusMsg.style.color = 'var(--error-red)';
+            }
+        };
+
+        // ==========================================
+        // SIGNATURE PAD LOGIC
+        // ==========================================
+        const canvas = document.getElementById('signature-pad');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        openSignBtn.addEventListener('click', () => {
+            signatureModal.style.display = 'flex';
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            signatureModal.style.display = 'none';
+        });
+
+        clearPadBtn.addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        function getCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            // Calculate exact scale to prevent offset if CSS resizes the canvas
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            return { 
+                x: (clientX - rect.left) * scaleX, 
+                y: (clientY - rect.top) * scaleY 
+            };
+        }
+
+        function startPosition(e) {
+            e.preventDefault();
+            isDrawing = true;
+            
+            // Set the selected color and hardcoded thickness right before drawing begins
+            ctx.strokeStyle = sigColorInput.value;
+            ctx.lineWidth = 14; // Thicker than the old max of 10 for a bold stroke
+            
+            const { x, y } = getCoords(e);
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            draw(e);
+        }
+
+        function endPosition() {
+            isDrawing = false;
+            ctx.beginPath();
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const { x, y } = getCoords(e);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        canvas.addEventListener('mousedown', startPosition);
+        canvas.addEventListener('mouseup', endPosition);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseleave', endPosition);
+        canvas.addEventListener('touchstart', startPosition, { passive: false });
+        canvas.addEventListener('touchend', endPosition);
+        canvas.addEventListener('touchmove', draw, { passive: false });
+
+        // ==========================================
+        // FIND PLACEHOLDER & INJECT SIGNATURE
+        // ==========================================
+        
+        saveSigBtn.addEventListener('click', async () => {
+            if (!currentDocId) return;
+
+            const blank = document.createElement('canvas');
+            blank.width = canvas.width; blank.height = canvas.height;
+            if (canvas.toDataURL() === blank.toDataURL()) {
+                alert("Please draw a signature first!");
+                return;
+            }
+
+            statusMsg.textContent = 'Sending signature securely to n8n...';
+            statusMsg.style.color = 'var(--accent-blue)';
+            saveSigBtn.disabled = true;
+            openSignBtn.style.display = 'none'; // Instantly hides the button in the header
+
+            try {
+                // Crop and get final image canvas with bottom border
+                const finalCanvas = cropSignatureCanvas(canvas);
+                
+                // Get Base64 image data to securely send to your n8n backend
+                const base64Image = finalCanvas.toDataURL('image/png');
+
+                // Send to n8n Webhook for processing
+                const response = await fetch(SAVE_WEBHOOK, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        action: "inject_signature", 
+                        docId: currentDocId,
+                        image: base64Image,
+                        name: authName,
+                        numb: authNumb,
+                        token: authToken,
+                        itemid: authItemId
+                    })
+                });
+
+                if (!response.ok) throw new Error("n8n workflow failed to inject signature.");
+
+                // Success!
+                signatureModal.style.display = 'none';
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                statusMsg.textContent = 'Signature Saved! Document updated successfully.';
+                statusMsg.style.color = 'var(--success-green)';
+                saveSigBtn.disabled = false;
+                
+                // Refresh iframe to see changes from the backend
+                // If in mobile screenshot mode, update the cache buster so the new signature appears instantly
+                if (document.body.classList.contains('mobile-preview-mode')) {
+                    const newCacheBuster = new Date().getTime();
+                    iframe.src = `https://drive.google.com/file/d/${currentDocId}/preview?embedded=true&t=${newCacheBuster}`;
+                } else {
+                    iframe.src = iframe.src; 
+                }
+
+            } catch (error) {
+                console.error("Process failed:", error);
+                statusMsg.textContent = `Error: Please check your n8n workflow execution.`;
+                statusMsg.style.color = 'var(--error-red)';
+                saveSigBtn.disabled = false;
+            }
+        });
+
+        // Crop logic returning single canvas with a thin black bottom border
+        function cropSignatureCanvas(sourceCanvas) {
+            const ctx = sourceCanvas.getContext('2d');
+            const w = sourceCanvas.width, h = sourceCanvas.height;
+            const pix = {x:[], y:[]};
+            const imageData = ctx.getImageData(0,0,w,h);
+            
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const index = (y * w + x) * 4;
+                    if (imageData.data[index+3] > 0) {
+                        pix.x.push(x); pix.y.push(y);
+                    }
+                }
+            }
+            if (pix.x.length === 0) return sourceCanvas;
+            
+            pix.x.sort(function(a,b){return a-b});
+            pix.y.sort(function(a,b){return a-b});
+            const n = pix.x.length-1;
+            
+            const w_cropped = pix.x[n] - pix.x[0];
+            const h_cropped = pix.y[n] - pix.y[0];
+            
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = w_cropped + 20; 
+            finalCanvas.height = h_cropped + 20;
+            const finalCtx = finalCanvas.getContext('2d');
+            
+            // Paste the signature into the center
+            finalCtx.putImageData(ctx.getImageData(pix.x[0], pix.y[0], w_cropped, h_cropped), 10, 10);
+            
+            // Draw thick black line at the lower border
+            finalCtx.beginPath();
+            finalCtx.moveTo(0, finalCanvas.height - 2);
+            finalCtx.lineTo(finalCanvas.width, finalCanvas.height - 2);
+            finalCtx.lineWidth = 3; // Thickened the line
+            finalCtx.strokeStyle = 'rgba(0, 0, 0, 0.9)'; // Thicker black line
+            finalCtx.stroke();
+            
+            return finalCanvas;
+        }
+
+    </script>
+</body>
+</html>
