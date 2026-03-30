@@ -424,6 +424,17 @@
                     throw new Error("n8n sent a 0-byte file! The Google Drive node failed to render the document.");
                 }
 
+                // 🚨 ULTIMATE X-RAY: Verify if n8n actually sent a PDF, or if it secretly sent an HTML/JSON error page!
+                // All valid PDFs in the world MUST start with the text "%PDF-"
+                const textDecoder = new TextDecoder("utf-8");
+                const fileSignature = textDecoder.decode(arrayBuffer.slice(0, 5));
+                
+                if (fileSignature !== "%PDF-") {
+                    // It's NOT a PDF! Decode the first 150 characters so we can read n8n's hidden error message
+                    const hiddenErrorText = textDecoder.decode(arrayBuffer.slice(0, 150));
+                    throw new Error(`n8n did not send a PDF! It sent this instead: ${hiddenErrorText}`);
+                }
+
                 statusMsg.textContent = `Received ${kbSize}KB PDF. Painting pixels...`;
 
                 // 1. Initialize PDF.js Web Worker securely for any CDN format
@@ -476,11 +487,16 @@
                 statusMsg.textContent = 'Document rendered flawlessly! Click Sign.';
                 statusMsg.style.color = 'var(--success-green)';
 
-            } catch (err) {
-                console.error(err);
-                // Dynamically prints the EXACT technical JavaScript error to the screen so we aren't blind!
-                statusMsg.textContent = err.message || 'Error securely loading document from n8n.';
+            
+        } catch (err) {
+                console.error("CRITICAL ENGINE ERROR:", err);
+                // Forcefully converts ANY error (even weird pdf.js ones) into readable text so we are never blind again!
+                const errorText = err.message ? err.message : String(err);
+                statusMsg.textContent = `CRASH: ${errorText}`;
                 statusMsg.style.color = 'var(--error-red)';
+                
+                // Also trigger a popup just to be 100% sure you see it on mobile
+                alert(`CRASH DETAILS: \n${errorText}`);
             }
         };
 
