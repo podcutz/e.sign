@@ -6,6 +6,8 @@
     <title>Podcutz E-Sign</title>
     <link rel="icon" type="image/png" href="https://res.cloudinary.com/dobnqmfsg/image/upload/v1772612374/Untitled_design__1_-removebg-preview_ux1end.png">
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
     <!-- Google Auth removed: Security and API calls now handled securely by n8n backend -->
     
     <style>
@@ -320,11 +322,8 @@
         </div>
 
         <!-- The embedded Google Doc -->
-        <div id="gdocs-wrapper" class="gdocs-wrapper">
-            <div id="ruler-mask-top" class="ruler-mask-top"></div>
-            <div id="ruler-mask-left" class="ruler-mask-left"></div>
-            <iframe id="gdocs-frame" allowfullscreen></iframe>
-        </div>
+        <div id="pdf-container" style="display: none; width: 100%; height: 100%; overflow: auto; background-color: #525659; text-align: center; padding: 20px 0; -webkit-overflow-scrolling: touch;">
+            </div>
         
         <!-- Signature Pad Modal -->
         <div id="signature-modal" class="modal-overlay">
@@ -417,26 +416,63 @@
                 
                 const data = await response.json();
                 
-                // Pro Hack: Detect mobile and serve the read-only "Screenshot/Preview" mode
-                const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                const cacheBuster = new Date().getTime(); // Forces Google to load fresh data
-
-                let finalUrl = data.embedUrl || `https://docs.google.com/document/d/${currentDocId}/edit?rm=minimal`;
-
-                
-                if (isMobile) {
-                    // PRO HACK: Use the native Google Drive /view endpoint instead of embedded preview.
-                    // This creates the exact stable environment you see when opening a Drive link normally.
-                    finalUrl = `https://drive.google.com/file/d/${currentDocId}/view?usp=sharing&t=${cacheBuster}`;
-                    document.body.classList.add('mobile-preview-mode'); // Hides the ruler masks and disables scaling
+                if (!data.pdfBase64) {
+                    throw new Error("Missing PDF Data! Please configure n8n to return 'pdfBase64'.");
                 }
 
-                iframe.src = finalUrl;
-                // Reveal the wrapper containing the perfectly scaled iframe and masks
-                document.getElementById('gdocs-wrapper').style.display = 'block';
+                statusMsg.textContent = 'Rendering crisp document pixels...';
+
+                // 1. Initialize PDF.js Web Worker
+                const pdfjsLib = window['pdfjs-dist/build/pdf'];
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+                // 2. Decode Base64 securely
+                const binaryString = atob(data.pdfBase64);
+                const uint8Array = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    uint8Array[i] = binaryString.charCodeAt(i);
+                }
+
+                // 3. Load the PDF document
+                const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+                const pdf = await loadingTask.promise;
+                
+                const pdfContainer = document.getElementById('pdf-container');
+                pdfContainer.innerHTML = ''; // Clear out old pages
+
+                // 4. Paint each page onto a canvas
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    
+                    // Scale 1.5x gives high-resolution crispness on mobile retina screens
+                    const viewport = page.getViewport({ scale: 1.5 }); 
+                    
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    
+                    // Styling the page to look like a piece of paper
+                    canvas.style.margin = '0 auto 20px auto';
+                    canvas.style.display = 'block';
+                    canvas.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
+                    canvas.style.maxWidth = '100%'; // Ensures it fits on small phones
+                    canvas.style.backgroundColor = '#ffffff';
+                    
+                    pdfContainer.appendChild(canvas);
+                    
+                    const renderContext = {
+                        canvasContext: context,
+                        viewport: viewport
+                    };
+                    await page.render(renderContext).promise;
+                }
+
+                // Reveal the UI
+                pdfContainer.style.display = 'block';
                 openSignBtn.style.display = 'inline-flex';
 
-                statusMsg.textContent = 'Document loaded! Ensure [SIGN] is typed before signing.';
+                statusMsg.textContent = 'Document rendered flawlessly! Click Sign.';
                 statusMsg.style.color = 'var(--success-green)';
 
             } catch (err) {
