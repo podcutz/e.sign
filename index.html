@@ -3,14 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="color-scheme" content="dark"> <meta name="supported-color-schemes" content="dark">
     <title>Podcutz E-Sign</title>
     <link rel="icon" type="image/png" href="https://res.cloudinary.com/dobnqmfsg/image/upload/v1772612374/Untitled_design__1_-removebg-preview_ux1end.png">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     
-    <!-- Google Auth removed: Security and API calls now handled securely by n8n backend -->
-    
     <style>
+        /* Global Box Sizing prevents horizontal overflow, snapping the scrollbar to the exact edge! */
+        * { box-sizing: border-box; }
+
         /* Modern Dark Theme Workspace */
         :root {
             --bg-workspace: #1f1f1f;
@@ -32,7 +34,8 @@
             background-color: var(--bg-workspace);
             font-family: 'Google Sans', Roboto, Helvetica, sans-serif;
             color: var(--text-primary);
-            /* Removed fixed 100vh and flex to allow native window scrolling (fixes scrollbar position) */
+            /* Lock X-axis overflow to keep scrollbar perfectly pinned to the right */
+            overflow-x: hidden; 
             touch-action: pan-x pan-y pinch-zoom; 
         }
 
@@ -80,8 +83,9 @@
         .action-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-success { background-color: var(--success-green); }
         .btn-success:hover { background-color: #92e0a7; }
-        .btn-white { background-color: var(--btn-white); color: #000000; font-weight: 600; }
-        .btn-white:hover { background-color: var(--btn-white-hover); color: #000000; }
+        /* Used #feffff (off-white) to blind Gmail auto-darkmode from dimming the buttons */
+        .btn-white { background-color: #feffff !important; color: #000000 !important; font-weight: 600; forced-color-adjust: none; }
+        .btn-white:hover { background-color: var(--btn-white-hover) !important; color: #000000 !important; }
 
         /* Link Input Styling */
         .link-input-group {
@@ -103,6 +107,7 @@
         #doc-link-input:focus { border-color: var(--accent-blue); }
 
         #status-msg {
+            display: none !important; /* Forcefully hidden from UI */
             color: var(--text-muted);
             font-size: 14px;
             margin-left: auto;
@@ -203,7 +208,7 @@
             display: none;
             justify-content: center;
             align-items: center;
-            z-index: 200;
+            z-index: 2000; /* Increased to 2000 so it completely covers the sticky header */
         }
 
         
@@ -230,7 +235,8 @@
         
         /* The specific drawing area */
         #signature-pad {
-            background: #fff;
+            background-color: #feffff !important; /* Forces Canvas to stay bright white against Gmail auto-invert */
+            forced-color-adjust: none;
             border-radius: 4px;
             cursor: crosshair;
             width: 100%;
