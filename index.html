@@ -32,25 +32,23 @@
             background-color: var(--bg-workspace);
             font-family: 'Google Sans', Roboto, Helvetica, sans-serif;
             color: var(--text-primary);
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            /* overflow: hidden; Removed to allow native pinch-to-zoom and panning */
-            touch-action: pan-x pan-y pinch-zoom; /* Force browser to allow zooming globally */
+            /* Removed fixed 100vh and flex to allow native window scrolling (fixes scrollbar position) */
+            touch-action: pan-x pan-y pinch-zoom; 
         }
 
         /* Custom App Toolbar */
         .app-toolbar {
             background-color: var(--bg-toolbar);
-            padding: 20px 15px; /* Thickened header, pushed slightly left */
+            padding: 15px 15px; 
             display: flex;
             align-items: center;
             gap: 15px;
             border-bottom: 1px solid var(--border-color);
             box-shadow: 0 1px 4px rgba(0,0,0,0.4);
-            z-index: 100;
-            flex-wrap: wrap;
-            position: relative;
+            z-index: 1000;
+            flex-wrap: nowrap; /* Forces items on a single line */
+            position: sticky; /* Keeps header at the top while body scrolls */
+            top: 0;
         }
 
         .logo {
@@ -146,20 +144,22 @@
                 transform: scale(calc(100vw / 1024)); 
             }
 
-            /* 2. Thicken and enlarge top header toolbar and buttons for touch */
+            /* 2. Scale down header and buttons so they fit perfectly on a single line */
             .app-toolbar {
-                padding: 40px 20px !important; /* Made significantly thicker */
+                padding: 12px 15px !important; 
+                gap: 10px !important;
             }
             .logo {
-                font-size: 32px !important; /* Larger text for Podcutz */
+                font-size: 18px !important; 
             }
             .logo img {
-                width: 60px !important; /* Larger logo image */
-                height: 60px !important;
+                width: 28px !important; 
+                height: 28px !important;
             }
             .action-btn {
-                padding: 20px 30px !important; /* Larger button padding */
-                font-size: 22px !important; /* Larger button text */
+                padding: 8px 12px !important; 
+                font-size: 14px !important; 
+                white-space: nowrap !important;
             }
 
             /* 3. Make signature modal huge on mobile for easy signing */
@@ -322,7 +322,7 @@
         </div>
 
         <!-- The embedded Google Doc -->
-        <div id="pdf-container" style="display: none; width: 100%; height: 100%; overflow: auto; background-color: #525659; text-align: center; padding: 20px 0; -webkit-overflow-scrolling: touch;">
+        <div id="pdf-container" style="display: none; width: 100%; min-height: 100vh; background-color: #525659; text-align: center; padding: 20px 0;">
             </div>
         
         <!-- Signature Pad Modal -->
@@ -374,7 +374,7 @@
         const sigColorInput = document.getElementById('sig-color');
         
         const statusMsg = document.getElementById('status-msg');
-        statusMsg.style.display = 'block'; // Force status text to be visible so you can see loading states!
+        statusMsg.style.display = 'none'; // Hidden per user request for a cleaner UI
         
         const setupScreen = document.getElementById('setup-instructions');
 
