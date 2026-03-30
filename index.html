@@ -623,13 +623,59 @@
                 signatureModal.style.display = 'none';
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
-                statusMsg.textContent = 'Signature Saved! Document updated successfully.';
+                statusMsg.textContent = 'Signature Saved! Painting new document...';
                 statusMsg.style.color = 'var(--success-green)';
                 saveSigBtn.disabled = false;
                 
-                // Refresh the Image viewer to see the new signature from the backend
-                document.getElementById('pdf-container').style.display = 'none';
-                window.location.reload(); // Hard refresh to ensure image cache is cleared
+                // Read the raw binary PDF file directly from the new n8n webhook response!
+                const arrayBuffer = await response.arrayBuffer();
+                
+                // 1. Initialize PDF.js Web Worker securely
+                const pdfjsLib = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
+                if (!pdfjsLib) {
+                    throw new Error("PDF.js library is missing! Check your internet or CDN link.");
+                }
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+                // 2. Load the newly signed PDF document securely using a typed Uint8Array
+                const uint8Array = new Uint8Array(arrayBuffer);
+                const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+                const pdf = await loadingTask.promise;
+                
+                const pdfContainer = document.getElementById('pdf-container');
+                pdfContainer.innerHTML = ''; // Clear container to remove old unsigned pages
+
+                // 3. Paint each updated page onto the screen
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    
+                    const viewport = page.getViewport({ scale: 1.5 }); 
+                    
+                    const pageCanvas = document.createElement('canvas');
+                    const pageContext = pageCanvas.getContext('2d');
+                    pageCanvas.height = viewport.height;
+                    pageCanvas.width = viewport.width;
+                    
+                    pageCanvas.style.margin = '0 auto 20px auto';
+                    pageCanvas.style.display = 'block';
+                    pageCanvas.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
+                    pageCanvas.style.maxWidth = '100%';
+                    pageCanvas.style.backgroundColor = '#ffffff';
+                    
+                    pdfContainer.appendChild(pageCanvas);
+                    
+                    const renderContext = {
+                        canvasContext: pageContext,
+                        viewport: viewport
+                    };
+                    await page.render(renderContext).promise;
+                }
+
+                // Reveal the updated UI
+                pdfContainer.style.display = 'block';
+
+                statusMsg.textContent = 'Document successfully signed and updated!';
+                statusMsg.style.color = 'var(--success-green)';
 
             } catch (error) {
                 console.error("Process failed:", error);
