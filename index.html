@@ -595,9 +595,17 @@
             saveSigBtn.disabled = true;
             openSignBtn.style.display = 'none'; // Instantly hides the button in the header
 
+            // INSTANT UI FEEDBACK: Close modal immediately so user isn't stuck staring at it
+            signatureModal.style.display = 'none';
+            const pdfContainer = document.getElementById('pdf-container');
+            pdfContainer.style.opacity = '0.5'; // Dim the background document to show loading state
+
             try {
                 // Crop and get final image canvas with bottom border
                 const finalCanvas = cropSignatureCanvas(canvas);
+                
+                // Clear the signature pad now that we have cropped it
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
                 // Get Base64 image data to securely send to your n8n backend
                 const base64Image = finalCanvas.toDataURL('image/png');
@@ -620,12 +628,8 @@
                 if (!response.ok) throw new Error("n8n workflow failed to inject signature.");
 
                 // Success!
-                signatureModal.style.display = 'none';
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
                 statusMsg.textContent = 'Signature Saved! Painting new document...';
                 statusMsg.style.color = 'var(--success-green)';
-                saveSigBtn.disabled = false;
                 
                 // Read the raw binary PDF file directly from the new n8n webhook response!
                 const arrayBuffer = await response.arrayBuffer();
@@ -673,6 +677,8 @@
 
                 // Reveal the updated UI
                 pdfContainer.style.display = 'block';
+                pdfContainer.style.opacity = '1'; // Restore full opacity
+                saveSigBtn.disabled = false;
 
                 statusMsg.textContent = 'Document successfully signed and updated!';
                 statusMsg.style.color = 'var(--success-green)';
@@ -682,6 +688,8 @@
                 statusMsg.textContent = `Error: Please check your n8n workflow execution.`;
                 statusMsg.style.color = 'var(--error-red)';
                 saveSigBtn.disabled = false;
+                document.getElementById('pdf-container').style.opacity = '1'; // Restore opacity if failed
+                openSignBtn.style.display = 'inline-flex'; // Allow them to try again
             }
         });
 
