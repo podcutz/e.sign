@@ -417,8 +417,14 @@
                 
                 // Read the raw binary file directly from n8n (bypassing JSON entirely)
                 const arrayBuffer = await response.arrayBuffer();
+                
+                // 🚨 PRO HACK: X-Ray Diagnostic - Check exact file size received
+                const kbSize = Math.round(arrayBuffer.byteLength / 1024);
+                if (kbSize === 0) {
+                    throw new Error("n8n sent a 0-byte file! The Google Drive node failed to render the document.");
+                }
 
-                statusMsg.textContent = 'Rendering crisp document pixels...';
+                statusMsg.textContent = `Received ${kbSize}KB PDF. Painting pixels...`;
 
                 // 1. Initialize PDF.js Web Worker correctly for CDN
                 const pdfjsLib = window.pdfjsLib;
