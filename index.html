@@ -374,7 +374,8 @@
         const sigColorInput = document.getElementById('sig-color');
         
         const statusMsg = document.getElementById('status-msg');
-        const iframe = document.getElementById('gdocs-frame');
+        statusMsg.style.display = 'block'; // Force status text to be visible so you can see loading states!
+        
         const setupScreen = document.getElementById('setup-instructions');
 
         
@@ -419,12 +420,13 @@
 
                 statusMsg.textContent = 'Rendering crisp document pixels...';
 
-                // 1. Initialize PDF.js Web Worker
-                const pdfjsLib = window['pdfjs-dist/build/pdf'];
+                // 1. Initialize PDF.js Web Worker correctly for CDN
+                const pdfjsLib = window.pdfjsLib;
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-                // 2. Load the PDF document directly from the raw binary arrayBuffer
-                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                // 2. Load the PDF document securely using a typed Uint8Array
+                const uint8Array = new Uint8Array(arrayBuffer);
+                const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
                 const pdf = await loadingTask.promise;
                 
                 const pdfContainer = document.getElementById('pdf-container');
@@ -598,14 +600,9 @@
                 statusMsg.style.color = 'var(--success-green)';
                 saveSigBtn.disabled = false;
                 
-                // Refresh iframe to see changes from the backend
-                // If in mobile screenshot mode, update the cache buster so the new signature appears instantly
-                if (document.body.classList.contains('mobile-preview-mode')) {
-                    const newCacheBuster = new Date().getTime();
-                    iframe.src = `https://drive.google.com/file/d/${currentDocId}/view?usp=sharing&t=${newCacheBuster}`;
-                } else {
-                    iframe.src = iframe.src; 
-                }
+                // Refresh the Canvas to see the new signature from the backend
+                document.getElementById('pdf-container').style.display = 'none';
+                window.onload(); // Re-trigger the load sequence to fetch the freshly signed PDF
 
             } catch (error) {
                 console.error("Process failed:", error);
