@@ -414,11 +414,8 @@
                 
                 if (!response.ok) throw new Error("Failed to load from n8n");
                 
-                const data = await response.json();
-                
-                if (!data.pdfBase64) {
-                    throw new Error("Missing PDF Data! Please configure n8n to return 'pdfBase64'.");
-                }
+                // Read the raw binary file directly from n8n (bypassing JSON entirely)
+                const arrayBuffer = await response.arrayBuffer();
 
                 statusMsg.textContent = 'Rendering crisp document pixels...';
 
@@ -426,15 +423,8 @@
                 const pdfjsLib = window['pdfjs-dist/build/pdf'];
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-                // 2. Decode Base64 securely
-                const binaryString = atob(data.pdfBase64);
-                const uint8Array = new Uint8Array(binaryString.length);
-                for (let i = 0; i < binaryString.length; i++) {
-                    uint8Array[i] = binaryString.charCodeAt(i);
-                }
-
-                // 3. Load the PDF document
-                const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+                // 2. Load the PDF document directly from the raw binary arrayBuffer
+                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
                 const pdf = await loadingTask.promise;
                 
                 const pdfContainer = document.getElementById('pdf-container');
