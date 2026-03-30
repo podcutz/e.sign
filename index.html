@@ -405,43 +405,45 @@
             setupScreen.style.display = 'none';
             statusMsg.textContent = 'Loading Document via n8n...';
 
-            try {
-                // Call n8n Load Webhook securely
+           try {
                 const response = await fetch(LOAD_WEBHOOK, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: "load", docId: currentDocId })
                 });
                 
-                if (!response.ok) throw new Error("Failed to load from n8n");
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`n8n Error ${response.status}: ${errorText}`);
+                }
                 
-               // 1. Receive the raw image file from n8n
+                // 1. Receive the raw image file from n8n
                 const blob = await response.blob();
                 const imageUrl = URL.createObjectURL(blob);
 
                 const pdfContainer = document.getElementById('pdf-container');
-                pdfContainer.innerHTML = ''; // Clear container
+                pdfContainer.innerHTML = ''; 
 
-                // 2. Create a clean image element for the document
+                // 2. Create a high-performance image element
                 const docImage = document.createElement('img');
                 docImage.src = imageUrl;
                 docImage.style.width = '100%';
-                docImage.style.maxWidth = '1000px';
+                docImage.style.maxWidth = '1024px';
                 docImage.style.display = 'block';
                 docImage.style.margin = '0 auto';
                 docImage.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
+                docImage.style.backgroundColor = '#ffffff';
                 
                 pdfContainer.appendChild(docImage);
 
-                // Reveal the UI
+                // Reveal UI
                 pdfContainer.style.display = 'block';
                 openSignBtn.style.display = 'inline-flex';
 
-                statusMsg.textContent = 'Document loaded as secure image! Click Sign.';
+                statusMsg.textContent = 'Document Loaded as Secure Image!';
                 statusMsg.style.color = 'var(--success-green)';
 
-            
-        } catch (err) {
+            } catch (err) {
                 console.error("CRITICAL ENGINE ERROR:", err);
                 // Forcefully converts ANY error (even weird pdf.js ones) into readable text so we are never blind again!
                 const errorText = err.message ? err.message : String(err);
@@ -579,9 +581,9 @@
                 statusMsg.style.color = 'var(--success-green)';
                 saveSigBtn.disabled = false;
                 
-                // Refresh the Canvas to see the new signature from the backend
+                // Refresh the Image viewer to see the new signature from the backend
                 document.getElementById('pdf-container').style.display = 'none';
-                window.onload(); // Re-trigger the load sequence to fetch the freshly signed PDF
+                window.location.reload(); // Hard refresh to ensure image cache is cleared
 
             } catch (error) {
                 console.error("Process failed:", error);
