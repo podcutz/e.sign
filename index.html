@@ -288,11 +288,12 @@
             display: none !important;
         }
 
-        /* We purposely REMOVE the width: 100% override here!
-           By allowing the PDF viewer to use the 1024px scaling hack from above, 
-           we trick the Google Drive interactive engine into keeping its perfect desktop layout 
-           when it brightens up, preventing it from disturbing the UI.
-        */
+        /* Disables the 1024px scaling hack so the native Google Drive /view renders perfectly on mobile */
+        body.mobile-preview-mode .gdocs-wrapper {
+            width: 100% !important;
+            height: 100% !important;
+            transform: none !important;
+        }
     </style>
 </head>
 <body>
@@ -424,9 +425,9 @@
 
                 
                 if (isMobile) {
-                    // PRO HACK: Force the Google Drive Viewer instead of Docs unconditionally.
-                    // Adding embedded=true strips Google's grey toolbars and prevents layout squishing!
-                    finalUrl = `https://drive.google.com/file/d/${currentDocId}/preview?embedded=true&t=${cacheBuster}`;
+                    // PRO HACK: Use the native Google Drive /view endpoint instead of embedded preview.
+                    // This creates the exact stable environment you see when opening a Drive link normally.
+                    finalUrl = `https://drive.google.com/file/d/${currentDocId}/view?usp=sharing&t=${cacheBuster}`;
                     document.body.classList.add('mobile-preview-mode'); // Hides the ruler masks and disables scaling
                 }
 
@@ -575,7 +576,7 @@
                 // If in mobile screenshot mode, update the cache buster so the new signature appears instantly
                 if (document.body.classList.contains('mobile-preview-mode')) {
                     const newCacheBuster = new Date().getTime();
-                    iframe.src = `https://drive.google.com/file/d/${currentDocId}/preview?embedded=true&t=${newCacheBuster}`;
+                    iframe.src = `https://drive.google.com/file/d/${currentDocId}/view?usp=sharing&t=${newCacheBuster}`;
                 } else {
                     iframe.src = iframe.src; 
                 }
