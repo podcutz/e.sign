@@ -415,76 +415,29 @@
                 
                 if (!response.ok) throw new Error("Failed to load from n8n");
                 
-                // Read the raw binary file directly from n8n (bypassing JSON entirely)
-                const arrayBuffer = await response.arrayBuffer();
-                
-                // 🚨 PRO HACK: X-Ray Diagnostic - Check exact file size received
-                const kbSize = Math.round(arrayBuffer.byteLength / 1024);
-                if (kbSize === 0) {
-                    throw new Error("n8n sent a 0-byte file! The Google Drive node failed to render the document.");
-                }
+               // 1. Receive the raw image file from n8n
+                const blob = await response.blob();
+                const imageUrl = URL.createObjectURL(blob);
 
-                // 🚨 ULTIMATE X-RAY: Verify if n8n actually sent a PDF, or if it secretly sent an HTML/JSON error page!
-                // All valid PDFs in the world MUST start with the text "%PDF-"
-                const textDecoder = new TextDecoder("utf-8");
-                const fileSignature = textDecoder.decode(arrayBuffer.slice(0, 5));
-                
-                if (fileSignature !== "%PDF-") {
-                    // It's NOT a PDF! Decode the first 150 characters so we can read n8n's hidden error message
-                    const hiddenErrorText = textDecoder.decode(arrayBuffer.slice(0, 150));
-                    throw new Error(`n8n did not send a PDF! It sent this instead: ${hiddenErrorText}`);
-                }
-
-                statusMsg.textContent = `Received ${kbSize}KB PDF. Painting pixels...`;
-
-                // 1. Initialize PDF.js Web Worker securely for any CDN format
-                const pdfjsLib = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
-                if (!pdfjsLib) {
-                    throw new Error("PDF.js library is missing! Check your internet or CDN link.");
-                }
-                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-                // 2. Load the PDF document securely using a typed Uint8Array
-                const uint8Array = new Uint8Array(arrayBuffer);
-                const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
-                const pdf = await loadingTask.promise;
-                
                 const pdfContainer = document.getElementById('pdf-container');
-                pdfContainer.innerHTML = ''; // Clear out old pages
+                pdfContainer.innerHTML = ''; // Clear container
 
-                // 4. Paint each page onto a canvas
-                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                    const page = await pdf.getPage(pageNum);
-                    
-                    // Scale 1.5x gives high-resolution crispness on mobile retina screens
-                    const viewport = page.getViewport({ scale: 1.5 }); 
-                    
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-                    
-                    // Styling the page to look like a piece of paper
-                    canvas.style.margin = '0 auto 20px auto';
-                    canvas.style.display = 'block';
-                    canvas.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
-                    canvas.style.maxWidth = '100%'; // Ensures it fits on small phones
-                    canvas.style.backgroundColor = '#ffffff';
-                    
-                    pdfContainer.appendChild(canvas);
-                    
-                    const renderContext = {
-                        canvasContext: context,
-                        viewport: viewport
-                    };
-                    await page.render(renderContext).promise;
-                }
+                // 2. Create a clean image element for the document
+                const docImage = document.createElement('img');
+                docImage.src = imageUrl;
+                docImage.style.width = '100%';
+                docImage.style.maxWidth = '1000px';
+                docImage.style.display = 'block';
+                docImage.style.margin = '0 auto';
+                docImage.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
+                
+                pdfContainer.appendChild(docImage);
 
                 // Reveal the UI
                 pdfContainer.style.display = 'block';
                 openSignBtn.style.display = 'inline-flex';
 
-                statusMsg.textContent = 'Document rendered flawlessly! Click Sign.';
+                statusMsg.textContent = 'Document loaded as secure image! Click Sign.';
                 statusMsg.style.color = 'var(--success-green)';
 
             
