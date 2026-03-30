@@ -426,8 +426,11 @@
 
                 statusMsg.textContent = `Received ${kbSize}KB PDF. Painting pixels...`;
 
-                // 1. Initialize PDF.js Web Worker correctly for CDN
-                const pdfjsLib = window.pdfjsLib;
+                // 1. Initialize PDF.js Web Worker securely for any CDN format
+                const pdfjsLib = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
+                if (!pdfjsLib) {
+                    throw new Error("PDF.js library is missing! Check your internet or CDN link.");
+                }
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
                 // 2. Load the PDF document securely using a typed Uint8Array
@@ -475,7 +478,8 @@
 
             } catch (err) {
                 console.error(err);
-                statusMsg.textContent = 'Error securely loading document from n8n.';
+                // Dynamically prints the EXACT technical JavaScript error to the screen so we aren't blind!
+                statusMsg.textContent = err.message || 'Error securely loading document from n8n.';
                 statusMsg.style.color = 'var(--error-red)';
             }
         };
